@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Archetype Music Card</title>
+
+<style>
+:root {
+  --bg: #0b0b0f;
+  --card: rgba(255,255,255,0.08);
+  --glow: #6cf2ff;
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  background: radial-gradient(circle at top, #111, #000);
+  display: grid;
+  place-items: center;
+  font-family: system-ui, sans-serif;
+  color: white;
+}
+
+/* CARD */
+.player {
+  width: 320px;
+  height: 180px;
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(255,255,255,.12), rgba(255,255,255,.02));
+  backdrop-filter: blur(14px);
+  box-shadow: 0 20px 60px rgba(0,0,0,.6);
+  padding: 20px;
+  cursor: pointer;
+  position: relative;
+  transition: transform .4s ease, box-shadow .4s ease;
+}
+
+.player:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 0 40px rgba(108,242,255,.35);
+}
+
+/* PLAY STATE */
+.player.playing::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 22px;
+  box-shadow: 0 0 25px rgba(108,242,255,.6);
+  animation: pulse 1.8s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: .3 }
+  50% { opacity: .8 }
+  100% { opacity: .3 }
+}
+
+.title {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.artist {
+  font-size: .85rem;
+  opacity: .7;
+  margin-top: 4px;
+}
+
+/* CONTROLS */
+.controls {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+button {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,.15);
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.progress {
+  flex: 1;
+  height: 6px;
+  background: rgba(255,255,255,.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bar {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--glow), white);
+}
+</style>
+</head>
+
+<body>
+
+<div class="player" id="player">
+  <div class="title">Midnight Echo</div>
+  <div class="artist">Archetype Sound</div>
+
+  <div class="controls">
+    <button id="play">▶</button>
+    <div class="progress">
+      <div class="bar" id="bar"></div>
+    </div>
+  </div>
+</div>
+
+<audio id="audio" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"></audio>
+
+<script>
+const audio = document.getElementById("audio");
+const playBtn = document.getElementById("play");
+const bar = document.getElementById("bar");
+const card = document.getElementById("player");
+
+playBtn.onclick = () => {
+  if (audio.paused) {
+    audio.play();
+    playBtn.textContent = "⏸";
+    card.classList.add("playing");
+  } else {
+    audio.pause();
+    playBtn.textContent = "▶";
+    card.classList.remove("playing");
+  }
+};
+
+audio.ontimeupdate = () => {
+  bar.style.width = (audio.currentTime / audio.duration) * 100 + "%";
+};
+
+audio.onended = () => {
+  playBtn.textContent = "▶";
+  card.classList.remove("playing");
+  bar.style.width = "0%";
+};
+</script>
+
+</body>
+</html>

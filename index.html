@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retrowave Player</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=VT323&display=swap');
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0; padding: 0; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+            background-color: #a64d79;
+            background-image: 
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%;
+            font-family: 'VT323', monospace;
+            overflow: hidden;
+        }
+
+        /* --- WINDOW CONTROLS (PIXEL STYLE) --- */
+        .window-controls {
+            position: fixed; top: 10px; right: 10px; display: flex; gap: 8px;
+            z-index: 9999; -webkit-app-region: no-drag;
+        }
+        .win-btn {
+            width: 25px; height: 25px; background: transparent; border: 2px solid white; color: white;
+            font-family: 'VT323'; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .win-btn:hover { background: white; color: #a64d79; }
+
+        /* --- MENU --- */
+        .menu-wrapper {
+            position: fixed; top: 10px; left: 10px; z-index: 9999; -webkit-app-region: no-drag;
+        }
+        .dots-btn {
+            width: 35px; height: 35px; background: rgba(0,0,0,0.3); border: 2px solid white; border-radius: 4px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer;
+        }
+        .dot { width: 4px; height: 4px; background: white; border-radius: 50%; }
+
+        .dropdown {
+            position: absolute; top: 40px; left: 0; width: 160px;
+            background: #222; border: 2px solid white; display: none; flex-direction: column;
+            box-shadow: 5px 5px 0 rgba(0,0,0,0.5); -webkit-app-region: no-drag;
+        }
+        .dropdown.open { display: flex; }
+        .menu-item {
+            padding: 12px; color: white; font-family: 'Inter', sans-serif; font-size: 13px;
+            cursor: pointer; border-bottom: 1px solid #444;
+        }
+        .menu-item:hover { background: #007aff; }
+
+        /* --- THE PLAYER BLOCK --- */
+        .scene {
+            position: relative; width: 300px; height: 300px;
+            transform: rotateX(60deg) rotateZ(-45deg);
+            transform-style: preserve-3d; margin-top: 50px; z-index: 20;
+        }
+
+        .player-block {
+            position: absolute; width: 300px; height: 300px;
+            transform-style: preserve-3d;
+        }
+
+        /* BODY TOP */
+        .face-top {
+            position: absolute; width: 300px; height: 300px;
+            background: #f2aebf; border: 4px solid #4a2e36;
+            transform: translateZ(25px); 
+            z-index: 10;
+        }
+
+        /* SIDE WALLS (unchanged) */
+        .face-side {
+            position: absolute; background: #b86e8a; border: 4px solid #4a2e36;
+        }
+
+        .side-right {
+            width: 25px; height: 300px;
+            top: 0; left: 300px;
+            transform-origin: left;
+            transform: translateZ(24px) rotateY(90deg);
+        }
+
+        .side-front {
+            width: 300px; height: 25px;
+            top: 300px; left: 0;
+            transform-origin: top;
+            transform: translateZ(28px) rotateX(-90deg);
+        }
+
+        .side-back {
+            width: 300px; height: 25px;
+            top: 0; left: 0;
+            transform-origin: top;
+            transform: translateZ(25px) rotateX(90deg) translateY(-24px);
+        }
+
+        .side-left {
+            width: 25px; height: 300px;
+            top: 0; left: 0;
+            transform-origin: left;
+            transform: translateZ(25px) rotateY(-90deg) translateX(-22px);
+        }
+
+        .standing-lid {
+            position: absolute; top: 0; right: 0; width: 120px; height: 140px;
+            background: rgba(156, 224, 232, 0.4); border: 4px solid #f2aebf;
+            transform-origin: top right; transform: rotateX(90deg) translateY(-100%);
+            box-shadow: inset 0 0 20px rgba(255,255,255,0.4);
+        }
+
+        .vinyl {
+            position: absolute; top: 25px; left: 25px; width: 210px; height: 210px;
+            border-radius: 50%; background: #111; border: 3px solid #000;
+            display: flex; justify-content: center; align-items: center;
+            background: conic-gradient(#111 0deg, #333 90deg, #fff 135deg, #111 180deg, #333 270deg, #111 360deg);
+        }
+        .vinyl::after {
+            content: ''; position: absolute; width: 70px; height: 70px;
+            background: #f4d03f; border-radius: 50%; border: 10px solid #111;
+        }
+        .spinning { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        .arm-base {
+            position: absolute; top: 15px; right: 15px;
+            width: 40px; height: 40px; background: #555; border-radius: 50%; border: 2px solid #222;
+        }
+        .arm-stick {
+            position: absolute; top: 50%; left: 50%; width: 160px; height: 8px;
+            background: #ccc; border: 1px solid #666; transform-origin: left center;
+            transform: rotate(60deg); transition: transform 0.5s;
+        }
+        .arm-stick.playing { transform: rotate(90deg); }
+
+        .controls {
+            position: absolute; bottom: 20px; right: 20px;
+            display: flex; flex-direction: column; gap: 8px; transform: rotateZ(90deg);
+            -webkit-app-region: no-drag;
+        }
+        .btn-retro {
+            width: 80px; padding: 6px; font-family: 'VT323'; font-size: 16px;
+            border: 2px solid #000; background: #9ce0e8; cursor: pointer;
+            box-shadow: 3px 3px 0 rgba(0,0,0,0.4);
+        }
+        .btn-retro:active { transform: translate(3px, 3px); box-shadow: none; }
+        .btn-play { background: #2ecc71; color: white; }
+
+        /* --- IPOD PLAYLIST (COLOR #cc72bf, NO SHADOW) --- */
+        .ipod-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: none;
+            z-index: 10000;
+            display: none; justify-content: center; align-items: center;
+            -webkit-app-region: no-drag;
+        }
+        .ipod-overlay.active { display: flex; }
+
+        .ipod {
+            width: 230px; height: 350px;
+            background: #cc72bf;
+            border-radius: 18px; border: 3px solid #a35b99;
+            padding: 15px; display: flex; flex-direction: column; align-items: center;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 15px 15px 50px rgba(0,0,0,0.5);
+            pointer-events: auto;
+            position: relative;
+        }
+        .screen {
+            width: 100%; height: 130px; background: #fff;
+            border: 2px solid #111; border-radius: 6px; overflow: hidden;
+            display: flex; flex-direction: column;
+            position: relative;
+        }
+        .header {
+            background: #111; color: white; padding: 6px;
+            font-size: 11px; font-weight: bold;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        #playingLabel {
+            color: #2ecc71;
+            visibility: hidden;
+        }
+
+        .list { list-style: none; padding: 0; margin: 0; flex: 1; overflow-y: auto; }
+        .list li {
+            padding: 3px 4px;
+            font-size: 11px;
+            border-bottom: 1px solid #ccc;
+            cursor: pointer;
+            color: #111;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .list li span.track-name {
+            flex: 1;
+            pointer-events: none;
+        }
+        .track-btn {
+            font-size: 10px;
+            padding: 0 4px;
+            border: 1px solid #666;
+            background: #ddd;
+            cursor: pointer;
+        }
+        .list li:hover { background: #2980b9; color: white; }
+
+        .wheel {
+            margin-top: 30px; width: 120px; height: 120px;
+            background: #ddd; border-radius: 50%; border: 1px solid #999;
+            display: flex; justify-content: center; align-items: center; position: relative;
+        }
+        .c-btn {
+            width: 45px; height: 45px;
+            background: #bbb; border-radius: 50%;
+            cursor: pointer; border: none;
+            font-size: 24px; font-weight: bold; line-height: 45px; text-align: center;
+        }
+        .lbl { position: absolute; font-size: 10px; color: #777; font-weight: bold; pointer-events: none;}
+        .l-top { top: 10px; } .l-bot { bottom: 10px; }
+
+        /* XP-style new folder dialog (blue + hot pink) */
+        .xp-dialog {
+            position: absolute;
+            width: 230px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #ece9d8;
+            border: 2px solid #003c74;
+            box-shadow: 4px 4px 0 rgba(0,0,0,0.5);
+            font-family: 'Tahoma', 'MS Sans Serif', system-ui;
+            font-size: 11px;
+            display: none;
+            z-index: 20000;
+        }
+        .xp-titlebar {
+            background: linear-gradient(90deg, #ff4da6, #0a246a); /* hot pink to blue */
+            color: white;
+            padding: 2px 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .xp-titlebar span {
+            font-weight: bold;
+        }
+        .xp-titlebar button {
+            width: 16px; height: 16px;
+            border: 1px solid #000;
+            background: #c0c0c0;
+            font-size: 10px;
+            line-height: 12px;
+            cursor: pointer;
+            padding: 0;
+        }
+        .xp-body {
+            padding: 8px;
+        }
+        .xp-body input {
+            width: 100%;
+            margin-top: 4px;
+            font-size: 11px;
+            padding: 3px;
+            border: 1px solid #888;
+        }
+        .xp-buttons {
+            margin-top: 8px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 6px;
+        }
+        .xp-buttons button {
+            font-size: 11px;
+            padding: 2px 10px;
+            border: 1px solid #888;
+            background: #e0e0e0;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; -webkit-app-region: drag; z-index: 1;"></div>
+
+    <div class="window-controls">
+        <button class="win-btn" id="minBtn">_</button>
+        <button class="win-btn" id="closeBtn">X</button>
+    </div>
+
+    <div class="menu-wrapper">
+        <div class="dots-btn" id="menuBtn">
+            <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        </div>
+        <div class="dropdown" id="dropdown">
+            <div class="menu-item" id="openPlaylist">Playlist</div>
+            <div class="menu-item">Audio Settings</div>
+            <div class="menu-item">Themes</div>
+        </div>
+    </div>
+
+    <div class="scene">
+        <div class="player-block">
+            <div class="face-top">
+                <div class="standing-lid"></div>
+                <div class="vinyl" id="vinyl"></div>
+                <div class="arm-base"><div class="arm-stick" id="arm"></div></div>
+                <div class="controls">
+                    <button class="btn-retro" id="loadBtn">INSERT</button>
+                    <button class="btn-retro btn-play" id="playBtn">PLAY</button>
+                </div>
+            </div>
+            <div class="face-side side-front"></div>
+            <div class="face-side side-right"></div>
+            <div class="face-side side-back"></div>
+            <div class="face-side side-left"></div>
+        </div>
+    </div>
+
+    <!-- iPod Playlist -->
+    <div class="ipod-overlay" id="ipodOverlay">
+        <div class="ipod" id="ipodBody">
+            <div class="screen">
+                <div class="header">
+                    <span>Playlists 🔋</span>
+                    <span id="playingLabel">Playing</span>
+                </div>
+                <ul class="list" id="playlist">
+                    <li class="folder" data-folder="Favorites <3">Favorites &lt;3</li>
+                    <!-- .track lis will be added under the appropriate folder -->
+                </ul>
+            </div>
+
+            <!-- XP-style new folder dialog -->
+            <div class="xp-dialog" id="xpFolderDialog">
+                <div class="xp-titlebar">
+                    <span>New Folder</span>
+                    <button id="xpCloseBtn">x</button>
+                </div>
+                <div class="xp-body">
+                    <div>Type a name for the folder:</div>
+                    <input type="text" id="xpFolderInput">
+                    <div class="xp-buttons">
+                        <button id="xpOkBtn">OK</button>
+                        <button id="xpCancelBtn">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="wheel">
+                <span class="lbl l-top">MENU</span>
+                <span class="lbl l-bot">⏯</span>
+                <button class="c-btn" id="addFolderBtn">+</button>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="fileInput" accept="audio/*" style="display:none;">
+
+    <script>
+        // Window controls (Electron-safe fallback)
+        let ipcRenderer;
+        try { ipcRenderer = require('electron').ipcRenderer; } catch (e) { ipcRenderer = { send: () => {} }; }
+        document.getElementById('closeBtn').onclick = () => ipcRenderer.send('app-close');
+        document.getElementById('minBtn').onclick = () => ipcRenderer.send('app-minimize');
+
+        // MENU
+        const menuBtn = document.getElementById('menuBtn');
+        const dropdown = document.getElementById('dropdown');
+        menuBtn.onclick = (e) => { e.stopPropagation(); dropdown.classList.toggle('open'); };
+        document.addEventListener('click', () => dropdown.classList.remove('open'));
+
+        // MINI POD
+        const ipodOverlay = document.getElementById('ipodOverlay');
+        const playlist = document.getElementById('playlist');
+        const playingLabel = document.getElementById('playingLabel');
+        const addFolderBtn = document.getElementById('addFolderBtn');
+
+        const xpDialog = document.getElementById('xpFolderDialog');
+        const xpInput  = document.getElementById('xpFolderInput');
+        const xpOkBtn  = document.getElementById('xpOkBtn');
+        const xpCancelBtn = document.getElementById('xpCancelBtn');
+        const xpCloseBtn  = document.getElementById('xpCloseBtn');
+
+        const DEFAULT_FOLDER = "Favorites <3";
+
+        // Per-folder open/closed state
+        const openFolders = {};
+        openFolders[DEFAULT_FOLDER] = true; // Favorites open by default
+
+        document.getElementById('openPlaylist').onclick = () => {
+            ipodOverlay.classList.add('active');
+            dropdown.classList.remove('open');
+            updateTrackVisibility();
+        };
+
+        ipodOverlay.onclick = (e) => {
+            if (e.target === ipodOverlay) ipodOverlay.classList.remove('active');
+        };
+
+        // XP dialog show/hide
+        addFolderBtn.onclick = (e) => {
+            e.stopPropagation();
+            xpDialog.style.display = 'block';
+            xpInput.value = '';
+            xpInput.focus();
+        };
+
+        function closeXpDialog() {
+            xpDialog.style.display = 'none';
+        }
+        xpCloseBtn.onclick = (e) => { e.stopPropagation(); closeXpDialog(); };
+        xpCancelBtn.onclick = (e) => { e.stopPropagation(); closeXpDialog(); };
+
+        xpOkBtn.onclick = (e) => {
+            e.stopPropagation();
+            const name = xpInput.value.trim();
+            if (name && !playlist.querySelector(`li.folder[data-folder="${name}"]`)) {
+                const li = document.createElement('li');
+                li.className = 'folder';
+                li.dataset.folder = name;
+                li.textContent = name;
+                playlist.appendChild(li);
+                openFolders[name] = false;
+            }
+            closeXpDialog();
+        };
+
+        xpInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') xpOkBtn.click();
+            if (e.key === 'Escape') closeXpDialog();
+        });
+
+        // AUDIO / MAIN PLAYER
+        const audio = new Audio();
+        const loadBtn = document.getElementById('loadBtn');
+        const playBtn = document.getElementById('playBtn');
+        const vinyl = document.getElementById('vinyl');
+        const arm = document.getElementById('arm');
+        const fileInput = document.getElementById('fileInput');
+
+        loadBtn.onclick = () => fileInput.click();
+
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const url = URL.createObjectURL(file);
+            audio.src = url;
+            loadBtn.style.background = "#f1c40f";
+
+            // auto-save under Favorites <3, directly beneath that folder
+            const trackLi = createTrackLi(file.name.substring(0, 20), url, DEFAULT_FOLDER);
+            insertTrackInFolder(DEFAULT_FOLDER, trackLi);
+            updateTrackVisibility();
+            stop();
+        };
+
+        function createTrackLi(name, url, folderName) {
+            const li = document.createElement('li');
+            li.className = 'track';
+            li.dataset.url = url;
+            li.dataset.folder = folderName;
+            li.dataset.dir = "1"; // direction for move button
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'track-name';
+            nameSpan.textContent = name;
+
+            const moveBtn = document.createElement('button');
+            moveBtn.className = 'track-btn track-move';
+            moveBtn.textContent = '⇩';
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'track-btn track-del';
+            delBtn.textContent = '✕';
+
+            li.appendChild(nameSpan);
+            li.appendChild(moveBtn);
+            li.appendChild(delBtn);
+
+            return li;
+        }
+
+        // Insert track directly beneath its folder (and beneath other tracks of same folder)
+        function insertTrackInFolder(folderName, trackLi) {
+            const folderLi = Array.from(playlist.querySelectorAll('li.folder'))
+                .find(f => f.dataset.folder === folderName);
+            if (!folderLi) {
+                playlist.appendChild(trackLi);
+                return;
+            }
+
+            let insertAfter = folderLi;
+            let sib = folderLi.nextElementSibling;
+            while (sib && sib.classList.contains('track') && sib.dataset.folder === folderName) {
+                insertAfter = sib;
+                sib = sib.nextElementSibling;
+            }
+            insertAfter.after(trackLi);
+        }
+
+        // Folder / track / buttons
+        playlist.addEventListener('click', (e) => {
+            const t = e.target;
+
+            // Move button
+            if (t.classList.contains('track-move')) {
+                e.stopPropagation();
+                const trackLi = t.closest('.track');
+                moveTrackToNextFolder(trackLi);
+                return;
+            }
+
+            // Delete button
+            if (t.classList.contains('track-del')) {
+                e.stopPropagation();
+                const trackLi = t.closest('.track');
+                trackLi.remove();
+                return;
+            }
+
+            // Folder clicked: toggle ONLY that folder's tracks
+            if (t.classList.contains('folder')) {
+                const folderName = t.dataset.folder;
+                openFolders[folderName] = !openFolders[folderName];
+                updateTrackVisibility();
+                return;
+            }
+
+            // Track clicked: play
+            const trackLi = t.closest('.track');
+            if (trackLi && trackLi.dataset.url) {
+                audio.src = trackLi.dataset.url;
+                play(true);
+            }
+        });
+
+        function updateTrackVisibility() {
+            const tracks = playlist.querySelectorAll('.track');
+            tracks.forEach(track => {
+                const folderName = track.dataset.folder;
+                track.style.display = openFolders[folderName] ? 'flex' : 'none';
+            });
+        }
+
+        function moveTrackToNextFolder(trackLi) {
+            const folders = Array.from(playlist.querySelectorAll('li.folder'));
+            if (folders.length === 0) return;
+
+            let dir = parseInt(trackLi.dataset.dir || "1", 10);
+            const currentFolderName = trackLi.dataset.folder || DEFAULT_FOLDER;
+
+            let currentIndex = folders.findIndex(f => f.dataset.folder === currentFolderName);
+            if (currentIndex === -1) currentIndex = 0;
+
+            let newIndex = currentIndex + dir;
+
+            if (newIndex >= folders.length) {
+                dir = -1;
+                newIndex = currentIndex + dir;
+            } else if (newIndex < 0) {
+                dir = 1;
+                newIndex = currentIndex + dir;
+            }
+
+            trackLi.dataset.dir = String(dir);
+            const newFolderLi = folders[newIndex];
+            const newFolderName = newFolderLi.dataset.folder;
+            trackLi.dataset.folder = newFolderName;
+
+            insertTrackInFolder(newFolderName, trackLi);
+            updateTrackVisibility();
+        }
+
+        // MAIN play/stop
+        playBtn.onclick = () => {
+            if (!audio.src) return;
+            if (audio.paused) play(false);
+            else stop();
+        };
+
+        function play(fromPlaylist) {
+            audio.play();
+            vinyl.classList.add('spinning');
+            arm.classList.add('playing');
+            playBtn.textContent = "STOP";
+            playBtn.style.background = "#e74c3c";
+            playingLabel.style.visibility = fromPlaylist ? "visible" : "hidden";
+        }
+
+        function stop() {
+            audio.pause();
+            vinyl.classList.remove('spinning');
+            arm.classList.remove('playing');
+            playBtn.textContent = "PLAY";
+            playBtn.style.background = "#2ecc71";
+            playingLabel.style.visibility = "hidden";
+        }
+
+        audio.onended = stop;
+    </script>
+</body>
+</html>
